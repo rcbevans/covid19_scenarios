@@ -18,9 +18,14 @@ import { readFile } from '../../../helpers/readFile'
 import { SeverityTableRow } from '../Scenario/SeverityTable'
 
 import './ResultsCard.scss'
+import ExpandButton from './ExpandButton'
+import ResultsCardBody from './ResultsCardBody'
+import ExpandedContent from './ExpandedContent'
 
 const LOG_SCALE_DEFAULT = true
 const SHOW_HUMANIZED_DEFAULT = true
+
+type ExpandedContentType = 'None' | 'Results' | 'ResultsChart' | 'AgeChart' | 'OutcomeRates'
 
 interface ResultsCardProps {
   autorunSimulation: boolean
@@ -42,6 +47,8 @@ function ResultsCardFunction({
   const { t } = useTranslation()
   const [logScale, setLogScale] = useState(LOG_SCALE_DEFAULT)
   const [showHumanized, setShowHumanized] = useState(SHOW_HUMANIZED_DEFAULT)
+
+  const [expandedContent, setExpandedContent] = useState<ExpandedContentType>('None')
 
   // TODO: shis should probably go into the `Compare/`
   const [files, setFiles] = useState<Map<FileType, File>>(new Map())
@@ -95,15 +102,61 @@ function ResultsCardFunction({
     setCanExport((result && !!result.deterministic) || false)
   }, [result])
 
+  const renderExpandedHeader = () => {
+    switch (expandedContent) {
+      case 'None':
+        return undefined
+      case 'Results':
+        return 'Results'
+      case 'ResultsChart':
+        return 'Results'
+    }
+  }
+
+  const renderExpandedContent = () => {
+    switch (expandedContent) {
+      case 'None':
+        return undefined
+      case 'Results':
+        return (
+          <ResultsCardBody
+            logScale={logScale}
+            showHumanized={showHumanized}
+            result={result}
+            userResult={userResult}
+            severity={severity}
+          />
+        )
+      case 'ResultsChart':
+        return (
+          <DeterministicLinePlot
+            data={result}
+            userResult={userResult}
+            logScale={logScale}
+            showHumanized={showHumanized}
+            caseCounts={caseCounts}
+          />
+        )
+    }
+  }
+
   return (
     <>
       <span ref={scrollTargetRef} />
       <CollapsibleCard
         identifier="results-card"
         title={
-          <h3 className="p-0 m-0 text-truncate" data-testid="ResultsCardTitle">
-            {t('Results')}
-          </h3>
+          <Row className="align-items-center">
+            <Col xs="auto">
+              <h3 className="p-0 m-0 text-truncate" data-testid="ResultsCardTitle">
+                {t('Results')}
+              </h3>
+            </Col>
+            <Col className="flex-grow-1" />
+            <Col xs="auto">
+              <ExpandButton disabled={!result} onClick={() => setExpandedContent('Results')} />
+            </Col>
+          </Row>
         }
         help={t('This section contains simulation results')}
         defaultCollapsed={false}
@@ -180,27 +233,14 @@ function ResultsCardFunction({
             />
           </Col>
         </Row>
-        <Row noGutters>
-          <Col>
-            <DeterministicLinePlot
-              data={result}
-              userResult={userResult}
-              logScale={logScale}
-              showHumanized={showHumanized}
-              caseCounts={caseCounts}
-            />
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            <AgeBarChart showHumanized={showHumanized} data={result} rates={severity} />
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            <OutcomeRatesTable showHumanized={showHumanized} result={result} rates={severity} />
-          </Col>
-        </Row>
+        <ResultsCardBody
+          logScale={logScale}
+          showHumanized={showHumanized}
+          result={result}
+          userResult={userResult}
+          caseCounts={caseCounts}
+          severity={severity}
+        />
       </CollapsibleCard>
       {result ? (
         <Button
@@ -223,6 +263,12 @@ function ResultsCardFunction({
         toggleShowModal={toggleShowExportModal}
         canExport={canExport}
         result={result}
+      />
+      <ExpandedContent
+        isOpen={expandedContent !== 'None'}
+        renderHeaderContent={renderExpandedHeader}
+        renderContent={renderExpandedContent}
+        toggle={() => setExpandedContent('None')}
       />
     </>
   )
